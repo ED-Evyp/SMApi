@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0f1e" />
+  <meta name="description" content="Live currency converter & stock tracker" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MarketPulse" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <title>MarketPulse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="noise"></div>
+  <div class="grid-bg"></div>
+
+  <header>
+    <div class="logo">
+      <span class="logo-icon">◈</span>
+      <span class="logo-text">MarketPulse</span>
+    </div>
+    <div class="status-bar">
+      <span class="status-dot" id="statusDot"></span>
+      <span class="status-text" id="statusText">Connecting…</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Currency Section -->
+    <section class="section" id="currency-section">
+      <div class="section-label">01 — CURRENCY</div>
+      <h2 class="section-title">FX Converter</h2>
+
+      <div class="rate-badge" id="liverate">
+        <span class="rate-label">EUR/USD</span>
+        <span class="rate-value" id="eurUsdDisplay">—</span>
+      </div>
+
+      <div class="converter-grid">
+        <!-- EUR → USD -->
+        <div class="converter-card" data-direction="eur-usd">
+          <div class="card-header">
+            <span class="flag">🇪🇺</span>
+            <span class="currency-code">EUR</span>
+            <span class="arrow">→</span>
+            <span class="flag">🇺🇸</span>
+            <span class="currency-code">USD</span>
+          </div>
+          <div class="input-wrap">
+            <span class="currency-symbol">€</span>
+            <input type="number" class="amount-input" id="eurInput" placeholder="0.00" min="0" step="0.01" />
+          </div>
+          <div class="result-wrap">
+            <span class="result-label">YOU GET</span>
+            <span class="result-value" id="usdResult">$0.00</span>
+          </div>
+        </div>
+
+        <!-- USD → EUR -->
+        <div class="converter-card" data-direction="usd-eur">
+          <div class="card-header">
+            <span class="flag">🇺🇸</span>
+            <span class="currency-code">USD</span>
+            <span class="arrow">→</span>
+            <span class="flag">🇪🇺</span>
+            <span class="currency-code">EUR</span>
+          </div>
+          <div class="input-wrap">
+            <span class="currency-symbol">$</span>
+            <input type="number" class="amount-input" id="usdInput" placeholder="0.00" min="0" step="0.01" />
+          </div>
+          <div class="result-wrap">
+            <span class="result-label">YOU GET</span>
+            <span class="result-value" id="eurResult">€0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="updated-at">Rate updated: <span id="rateUpdated">—</span></div>
+    </section>
+
+    <!-- Stocks Section -->
+    <section class="section" id="stocks-section">
+      <div class="section-label">02 — EQUITIES</div>
+      <h2 class="section-title">Watchlist</h2>
+
+      <div class="tickers-grid" id="tickersGrid">
+        <div class="ticker-card skeleton" data-symbol="AXTI" data-exchange="NASDAQ">
+          <div class="ticker-top">
+            <span class="ticker-symbol">AXTI</span>
+            <span class="ticker-exchange">NASDAQ</span>
+          </div>
+          <div class="ticker-price">—</div>
+          <div class="ticker-change neutral">—</div>
+          <div class="ticker-name">AXT Inc.</div>
+        </div>
+        <div class="ticker-card skeleton" data-symbol="LITE" data-exchange="NASDAQ">
+          <div class="ticker-top">
+            <span class="ticker-symbol">LITE</span>
+            <span class="ticker-exchange">NASDAQ</span>
+          </div>
+          <div class="ticker-price">—</div>
+          <div class="ticker-change neutral">—</div>
+          <div class="ticker-name">Lumentum Holdings</div>
+        </div>
+        <div class="ticker-card skeleton" data-symbol="AAOI" data-exchange="NASDAQ">
+          <div class="ticker-top">
+            <span class="ticker-symbol">AAOI</span>
+            <span class="ticker-exchange">NASDAQ</span>
+          </div>
+          <div class="ticker-price">—</div>
+          <div class="ticker-change neutral">—</div>
+          <div class="ticker-name">Applied Optoelectronics</div>
+        </div>
+        <div class="ticker-card skeleton" data-symbol="COHR" data-exchange="NYSE">
+          <div class="ticker-top">
+            <span class="ticker-symbol">COHR</span>
+            <span class="ticker-exchange">NYSE</span>
+          </div>
+          <div class="ticker-price">—</div>
+          <div class="ticker-change neutral">—</div>
+          <div class="ticker-name">Coherent Corp.</div>
+        </div>
+      </div>
+
+      <button class="refresh-btn" id="refreshBtn" onclick="refreshAll()">
+        <span class="refresh-icon">↻</span> Refresh Prices
+      </button>
+      <div class="stocks-updated">Last fetch: <span id="stocksUpdated">—</span></div>
+    </section>
+  </main>
+
+  <!-- PWA Install Banner -->
+  <div id="installBanner">
+    <span class="install-text"><strong>Add to Home Screen</strong><br>Install MarketPulse as an app</span>
+    <button class="install-btn" onclick="installApp()">Install</button>
+    <button class="install-close" onclick="dismissInstall()">✕</button>
+  </div>
+
+  <footer>
+    <p>Data via Yahoo Finance & exchangerate.host · Not financial advice</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
