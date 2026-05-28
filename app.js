@@ -1,188 +1,245 @@
-/* ===================================================
+/* =====================================================
    MarketPulse — app.js
-   Currency: exchangerate.host (free, no key)
-   Stocks:    Yahoo Finance query (CORS proxy)
-=================================================== */
+   Currency : exchangerate-api.com (fallback: frankfurter)
+   Stocks   : Yahoo Finance v8 via multiple CORS proxies
+              Handles regular, pre-market, and post-market
+====================================================== */
 
-// ── State ──────────────────────────────────────────
+// ── State ─────────────────────────────────────────────
 let eurUsdRate = null;
-let lastRateFetch = null;
-let lastStockFetch = null;
 
 const TICKERS = [
-  { symbol: 'AXTI',  exchange: 'NASDAQ', name: 'AXT Inc.' },
-  { symbol: 'LITE',  exchange: 'NASDAQ', name: 'Lumentum Holdings' },
-  { symbol: 'AAOI',  exchange: 'NASDAQ', name: 'Applied Optoelectronics' },
-  { symbol: 'COHR',  exchange: 'NYSE',   name: 'Coherent Corp.' },
+  { symbol: 'AXTI', exchange: 'NASDAQ', name: 'AXT Inc.' },
+  { symbol: 'LITE', exchange: 'NASDAQ', name: 'Lumentum Holdings' },
+  { symbol: 'AAOI', exchange: 'NASDAQ', name: 'Applied Optoelectronics' },
+  { symbol: 'COHR', exchange: 'NYSE',   name: 'Coherent Corp.' },
 ];
 
-// ── DOM refs ────────────────────────────────────────
-const eurInput     = document.getElementById('eurInput');
-const usdInput     = document.getElementById('usdInput');
-const usdResult    = document.getElementById('usdResult');
-const eurResult    = document.getElementById('eurResult');
-const eurUsdDisplay= document.getElementById('eurUsdDisplay');
-const rateUpdated  = document.getElementById('rateUpdated');
-const stocksUpdated= document.getElementById('stocksUpdated');
-const statusDot    = document.getElementById('statusDot');
-const statusText   = document.getElementById('statusText');
-const refreshBtn   = document.getElementById('refreshBtn');
+// CORS proxies tried in order
+const PROXIES = [
+  s => `https://api.allorigins.win/get?url=${encodeURIComponent(s)}`,
+  s => `https://corsproxy.io/?${encodeURIComponent(s)}`,
+];
 
-// ── Helpers ─────────────────────────────────────────
-function fmt(n, decimals = 2) {
-  if (n === null || n === undefined || isNaN(n)) return '—';
-  return Number(n).toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
+// ── DOM ───────────────────────────────────────────────
+const eurInput      = document.getElementById('eurInput');
+const usdInput      = document.getElementById('usdInput');
+const usdResult     = document.getElementById('usdResult');
+const eurResult     = document.getElementById('eurResult');
+const eurUsdDisplay = document.getElementById('eurUsdDisplay');
+const rateUpdated   = document.getElementById('rateUpdated');
+const stocksUpdated = document.getElementById('stocksUpdated');
+const statusDot     = document.getElementById('statusDot');
+const statusText    = document.getElementById('statusText');
+const refreshBtn    = document.getElementById('refreshBtn');
 
-function timeNow() {
-  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
+// ── Helpers ───────────────────────────────────────────
+const fmt = (n, d = 2) =>
+  (n == null || isNaN(n)) ? '—' :
+  Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+const timeNow = () =>
+  new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
 function setStatus(state, text) {
   statusDot.className = 'status-dot ' + state;
   statusText.textContent = text;
 }
 
-// ── Currency ─────────────────────────────────────────
+// ── Theme toggle ──────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeIcon').textContent = theme === 'dark' ? '☀' : '☾';
+  document.getElementById('themeColor').content = theme === 'dark' ? '#0a0f1e' : '#f0f4ff';
+  localStorage.setItem('mp-theme', theme);
+}
+
+window.toggleTheme = function () {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+};
+
+// Restore saved preference
+applyTheme(localStorage.getItem('mp-theme') || 'dark');
+
+// ── Currency ──────────────────────────────────────────
 async function fetchEurUsd() {
+  // Primary
   try {
-    // Primary: exchangerate-api (free tier, no key needed for this endpoint)
-    const res = await fetch(
-      'https://api.exchangerate-api.com/v4/latest/EUR',
-      { signal: AbortSignal.timeout(8000) }
-    );
-    if (!res.ok) throw new Error('API error');
-    const data = await res.json();
-    eurUsdRate = data.rates.USD;
-    lastRateFetch = timeNow();
+    const r = await fetch('https://api.exchangerate-api.com/v4/latest/EUR',
+      { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    eurUsdRate = d.rates.USD;
     eurUsdDisplay.textContent = fmt(eurUsdRate, 4);
-    rateUpdated.textContent = lastRateFetch;
-    eurUsdDisplay.style.animation = 'none';
-    void eurUsdDisplay.offsetWidth;
+    rateUpdated.textContent = timeNow();
+    return true;
+  } catch {}
+
+  // Fallback
+  try {
+    const r = await fetch('https://api.frankfurter.app/latest?from=EUR&to=USD',
+      { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    eurUsdRate = d.rates.USD;
+    eurUsdDisplay.textContent = fmt(eurUsdRate, 4);
+    rateUpdated.textContent = timeNow() + ' ↩';
     return true;
   } catch {
-    // Fallback: frankfurter.app
-    try {
-      const res2 = await fetch(
-        'https://api.frankfurter.app/latest?from=EUR&to=USD',
-        { signal: AbortSignal.timeout(8000) }
-      );
-      if (!res2.ok) throw new Error();
-      const data2 = await res2.json();
-      eurUsdRate = data2.rates.USD;
-      lastRateFetch = timeNow();
-      eurUsdDisplay.textContent = fmt(eurUsdRate, 4);
-      rateUpdated.textContent = lastRateFetch + ' (frankfurter)';
-      return true;
-    } catch {
-      eurUsdDisplay.textContent = 'Error';
-      return false;
-    }
+    eurUsdDisplay.textContent = 'Error';
+    return false;
   }
 }
 
-function convertEurToUsd(eur) {
-  if (!eurUsdRate || isNaN(eur)) return null;
-  return eur * eurUsdRate;
-}
-
-function convertUsdToEur(usd) {
-  if (!eurUsdRate || isNaN(usd)) return null;
-  return usd / eurUsdRate;
-}
+const toEur  = usd => (eurUsdRate ? usd / eurUsdRate : null);
+const toUsd  = eur => (eurUsdRate ? eur * eurUsdRate : null);
 
 eurInput.addEventListener('input', () => {
-  const val = parseFloat(eurInput.value);
-  if (!val && val !== 0) { usdResult.textContent = '$0.00'; return; }
-  const r = convertEurToUsd(val);
-  usdResult.textContent = r !== null ? `$${fmt(r)}` : '—';
+  const v = parseFloat(eurInput.value);
+  usdResult.textContent = (!v && v !== 0) ? '$0.00' : (toUsd(v) !== null ? `$${fmt(toUsd(v))}` : '—');
 });
-
 usdInput.addEventListener('input', () => {
-  const val = parseFloat(usdInput.value);
-  if (!val && val !== 0) { eurResult.textContent = '€0.00'; return; }
-  const r = convertUsdToEur(val);
-  eurResult.textContent = r !== null ? `€${fmt(r)}` : '—';
+  const v = parseFloat(usdInput.value);
+  eurResult.textContent = (!v && v !== 0) ? '€0.00' : (toEur(v) !== null ? `€${fmt(toEur(v))}` : '—');
 });
 
-// ── Stocks ────────────────────────────────────────────
-// Uses Yahoo Finance v7 via allorigins CORS proxy
-async function fetchQuote(symbol) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
-  const proxied = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+// ── Stock fetch ───────────────────────────────────────
+/**
+ * Fetches a Yahoo Finance chart payload through CORS proxies.
+ * Returns raw JSON or throws.
+ */
+async function fetchYahoo(symbol) {
+  // Yahoo v8 chart endpoint — returns both regular and extended-hours prices
+  const target = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d&includePrePost=true`;
 
-  const res = await fetch(proxied, { signal: AbortSignal.timeout(10000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const outer = await res.json();
-  const data = JSON.parse(outer.contents);
+  for (const makeProxy of PROXIES) {
+    try {
+      const url = makeProxy(target);
+      const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+      if (!res.ok) continue;
 
-  const meta = data?.chart?.result?.[0]?.meta;
-  if (!meta) throw new Error('No meta');
+      let payload;
+      const text = await res.text();
 
-  const price  = meta.regularMarketPrice ?? meta.previousClose;
-  const prev   = meta.chartPreviousClose ?? meta.previousClose;
-  const change = price - prev;
-  const changePct = (change / prev) * 100;
+      // allorigins wraps in { contents: "..." }
+      try {
+        const outer = JSON.parse(text);
+        payload = typeof outer.contents === 'string' ? JSON.parse(outer.contents) : outer;
+      } catch {
+        payload = JSON.parse(text);
+      }
 
-  return { price, change, changePct };
+      const result = payload?.chart?.result?.[0];
+      if (!result) continue;
+      return result;
+    } catch {
+      // try next proxy
+    }
+  }
+  throw new Error('All proxies failed');
 }
 
-function updateTickerCard(symbol, data, error) {
+/**
+ * Extracts the best available price and change from a Yahoo chart result.
+ * Priority: preMarket → postMarket → regularMarket
+ */
+function extractPrice(result) {
+  const meta = result.meta;
+  if (!meta) throw new Error('No meta');
+
+  const mktState = (meta.marketState || '').toUpperCase();
+  // regularMarketPrice is always the last closed price or current price during market hours
+  const regularPrice = meta.regularMarketPrice;
+  const prevClose    = meta.chartPreviousClose ?? meta.previousClose ?? regularPrice;
+
+  let price, stateLabel;
+
+  if (mktState === 'PRE' && meta.preMarketPrice) {
+    price      = meta.preMarketPrice;
+    stateLabel = '⬡ PRE-MARKET';
+  } else if ((mktState === 'POST' || mktState === 'POSTPOST') && meta.postMarketPrice) {
+    price      = meta.postMarketPrice;
+    stateLabel = '⬡ POST-MARKET';
+  } else if (mktState === 'CLOSED') {
+    price      = regularPrice;
+    stateLabel = 'CLOSED';
+  } else {
+    price      = regularPrice;
+    stateLabel = '';
+  }
+
+  if (price == null || isNaN(price)) throw new Error('No valid price');
+
+  const change    = price - prevClose;
+  const changePct = prevClose ? (change / prevClose) * 100 : 0;
+
+  return { price, change, changePct, stateLabel };
+}
+
+function updateCard(symbol, data, error) {
   const card = document.querySelector(`.ticker-card[data-symbol="${symbol}"]`);
   if (!card) return;
-
   card.classList.remove('skeleton');
-  const priceEl  = card.querySelector('.ticker-price');
-  const changeEl = card.querySelector('.ticker-change');
+
+  const priceUsdEl  = card.querySelector('.ticker-price-usd');
+  const priceEurEl  = card.querySelector('.ticker-price-eur');
+  const changeEl    = card.querySelector('.ticker-change');
+  const stateEl     = card.querySelector('.ticker-market-state');
 
   if (error) {
-    priceEl.textContent  = 'N/A';
-    changeEl.textContent = 'Error';
-    changeEl.className   = 'ticker-change neutral';
+    priceUsdEl.textContent = 'N/A';
+    priceEurEl.textContent = '';
+    changeEl.textContent   = String(error).replace('Error: ', '');
+    changeEl.className     = 'ticker-change neutral';
+    stateEl.textContent    = '';
     return;
   }
 
-  const { price, change, changePct } = data;
+  const { price, change, changePct, stateLabel } = data;
 
-  // Flash on update
-  priceEl.textContent = `$${fmt(price)}`;
-  priceEl.classList.remove('flash');
-  void priceEl.offsetWidth;
-  priceEl.classList.add('flash');
+  // USD price with flash
+  priceUsdEl.textContent = `$${fmt(price)}`;
+  priceUsdEl.classList.remove('flash');
+  void priceUsdEl.offsetWidth;
+  priceUsdEl.classList.add('flash');
 
+  // EUR price
+  const eur = toEur(price);
+  priceEurEl.textContent = eur !== null ? `€${fmt(eur)}` : '';
+
+  // Change
   const sign = change >= 0 ? '+' : '';
   changeEl.textContent = `${sign}${fmt(change)} (${sign}${fmt(changePct)}%)`;
-  changeEl.className = `ticker-change ${change >= 0 ? 'up' : 'down'}`;
+  changeEl.className   = `ticker-change ${change >= 0 ? 'up' : 'down'}`;
+
+  // Market state
+  stateEl.textContent = stateLabel;
 }
 
 async function fetchAllStocks() {
-  const results = await Promise.allSettled(
-    TICKERS.map(t =>
-      fetchQuote(t.symbol).then(d => ({ symbol: t.symbol, data: d }))
-    )
+  const settled = await Promise.allSettled(
+    TICKERS.map(async t => {
+      const result = await fetchYahoo(t.symbol);
+      return { symbol: t.symbol, data: extractPrice(result) };
+    })
   );
 
   let anyOk = false;
-  for (const r of results) {
+  settled.forEach((r, i) => {
     if (r.status === 'fulfilled') {
-      updateTickerCard(r.value.symbol, r.value.data, false);
+      updateCard(r.value.symbol, r.value.data, null);
       anyOk = true;
     } else {
-      // Try to extract symbol from rejection if possible
-      const sym = TICKERS[results.indexOf(r)]?.symbol;
-      if (sym) updateTickerCard(sym, null, true);
+      updateCard(TICKERS[i].symbol, null, r.reason?.message || 'Fetch failed');
     }
-  }
+  });
 
-  lastStockFetch = timeNow();
-  stocksUpdated.textContent = lastStockFetch;
+  stocksUpdated.textContent = timeNow();
   return anyOk;
 }
 
-// ── Refresh all ────────────────────────────────────────
+// ── Refresh all ───────────────────────────────────────
 window.refreshAll = async function () {
   refreshBtn.classList.add('loading');
   setStatus('', 'Fetching…');
@@ -190,66 +247,58 @@ window.refreshAll = async function () {
   const [rateOk, stocksOk] = await Promise.all([fetchEurUsd(), fetchAllStocks()]);
 
   refreshBtn.classList.remove('loading');
+  setStatus(
+    rateOk || stocksOk ? 'live' : 'error',
+    rateOk && stocksOk ? 'Live' : rateOk || stocksOk ? 'Partial' : 'Failed'
+  );
 
-  if (rateOk && stocksOk) {
-    setStatus('live', 'Live');
-  } else if (rateOk || stocksOk) {
-    setStatus('live', 'Partial data');
-  } else {
-    setStatus('error', 'Failed');
-  }
+  // Recalculate open converter fields now that rate may have updated
+  const ev = parseFloat(eurInput.value);
+  if (ev) usdResult.textContent = toUsd(ev) !== null ? `$${fmt(toUsd(ev))}` : '—';
+  const uv = parseFloat(usdInput.value);
+  if (uv) eurResult.textContent = toEur(uv) !== null ? `€${fmt(toEur(uv))}` : '—';
 
-  // Re-calc open converter inputs
-  const eurVal = parseFloat(eurInput.value);
-  if (eurVal) usdResult.textContent = `$${fmt(convertEurToUsd(eurVal))}`;
-  const usdVal = parseFloat(usdInput.value);
-  if (usdVal) eurResult.textContent = `€${fmt(convertUsdToEur(usdVal))}`;
+  // Also refresh EUR prices on ticker cards if rate just arrived
+  document.querySelectorAll('.ticker-card:not(.skeleton)').forEach(card => {
+    const usdText = card.querySelector('.ticker-price-usd')?.textContent || '';
+    const usdVal  = parseFloat(usdText.replace('$', '').replace(/,/g, ''));
+    if (!isNaN(usdVal)) {
+      const eurEl = card.querySelector('.ticker-price-eur');
+      const eur = toEur(usdVal);
+      if (eurEl && eur !== null) eurEl.textContent = `€${fmt(eur)}`;
+    }
+  });
 };
 
-// ── PWA Install ────────────────────────────────────────
+// ── PWA Install ───────────────────────────────────────
 let deferredPrompt = null;
 const installBanner = document.getElementById('installBanner');
 
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
-  if (installBanner) {
-    installBanner.classList.add('show');
-  }
+  installBanner?.classList.add('show');
 });
 
-function installApp() {
+window.installApp = function () {
   if (!deferredPrompt) return;
   deferredPrompt.prompt();
   deferredPrompt.userChoice.then(() => {
     deferredPrompt = null;
-    if (installBanner) installBanner.classList.remove('show');
+    installBanner?.classList.remove('show');
   });
-}
-
-function dismissInstall() {
-  if (installBanner) installBanner.classList.remove('show');
-}
+};
+window.dismissInstall = () => installBanner?.classList.remove('show');
 
 // ── Service Worker ────────────────────────────────────
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
-// ── Init ─────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────
 (async () => {
   setStatus('', 'Loading…');
   await refreshAll();
-  // Auto-refresh every 60 seconds
-  setInterval(() => {
-    fetchEurUsd().then(() => {
-      const ev = parseFloat(eurInput.value);
-      if (ev) usdResult.textContent = `$${fmt(convertEurToUsd(ev))}`;
-      const uv = parseFloat(usdInput.value);
-      if (uv) eurResult.textContent = `€${fmt(convertUsdToEur(uv))}`;
-    });
-    fetchAllStocks();
-  }, 60000);
+  // Auto-refresh every 60 s
+  setInterval(refreshAll, 60_000);
 })();
