@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0a0f1e" id="themeColor" />
+  <meta name="theme-color" content="#0a0f1e" />
   <meta name="description" content="Live currency converter & stock tracker" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -24,14 +24,9 @@
       <span class="logo-icon">◈</span>
       <span class="logo-text">MarketPulse</span>
     </div>
-    <div class="header-right">
-      <div class="status-bar">
-        <span class="status-dot" id="statusDot"></span>
-        <span class="status-text" id="statusText">Connecting…</span>
-      </div>
-      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle dark/light theme">
-        <span class="theme-icon" id="themeIcon">☀</span>
-      </button>
+    <div class="status-bar">
+      <span class="status-dot" id="statusDot"></span>
+      <span class="status-text" id="statusText">Connecting…</span>
     </div>
   </header>
 
@@ -100,10 +95,8 @@
             <span class="ticker-symbol">AXTI</span>
             <span class="ticker-exchange">NASDAQ</span>
           </div>
-          <div class="ticker-price-usd ticker-price">—</div>
-          <div class="ticker-price-eur">—</div>
+          <div class="ticker-price">—</div>
           <div class="ticker-change neutral">—</div>
-          <div class="ticker-market-state"></div>
           <div class="ticker-name">AXT Inc.</div>
         </div>
         <div class="ticker-card skeleton" data-symbol="LITE" data-exchange="NASDAQ">
@@ -111,10 +104,8 @@
             <span class="ticker-symbol">LITE</span>
             <span class="ticker-exchange">NASDAQ</span>
           </div>
-          <div class="ticker-price-usd ticker-price">—</div>
-          <div class="ticker-price-eur">—</div>
+          <div class="ticker-price">—</div>
           <div class="ticker-change neutral">—</div>
-          <div class="ticker-market-state"></div>
           <div class="ticker-name">Lumentum Holdings</div>
         </div>
         <div class="ticker-card skeleton" data-symbol="AAOI" data-exchange="NASDAQ">
@@ -122,10 +113,8 @@
             <span class="ticker-symbol">AAOI</span>
             <span class="ticker-exchange">NASDAQ</span>
           </div>
-          <div class="ticker-price-usd ticker-price">—</div>
-          <div class="ticker-price-eur">—</div>
+          <div class="ticker-price">—</div>
           <div class="ticker-change neutral">—</div>
-          <div class="ticker-market-state"></div>
           <div class="ticker-name">Applied Optoelectronics</div>
         </div>
         <div class="ticker-card skeleton" data-symbol="COHR" data-exchange="NYSE">
@@ -133,10 +122,8 @@
             <span class="ticker-symbol">COHR</span>
             <span class="ticker-exchange">NYSE</span>
           </div>
-          <div class="ticker-price-usd ticker-price">—</div>
-          <div class="ticker-price-eur">—</div>
+          <div class="ticker-price">—</div>
           <div class="ticker-change neutral">—</div>
-          <div class="ticker-market-state"></div>
           <div class="ticker-name">Coherent Corp.</div>
         </div>
       </div>
@@ -156,7 +143,7 @@
   </div>
 
   <footer>
-    <p>Data via Yahoo Finance & exchangerate-api.com · Not financial advice</p>
+    <p>Data via Yahoo Finance & exchangerate.host · Not financial advice</p>
   </footer>
 
   <script src="app.js"></script>
