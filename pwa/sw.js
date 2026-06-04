@@ -1,4 +1,4 @@
-const CACHE = 'marketpulse-v4';
+const CACHE = 'marketpulse-v1';
 const ASSETS = [
   './',
   './index.html',
